@@ -1,9 +1,11 @@
-cf_tmle <- function(Task, outcome, ratios, learners, lrnr_folds, full_fits, pb) {
+cf_tmle <- function(Task, outcome, ratios, learners, lrnr_folds, full_fits, cumulated = FALSE, pb) {
   out <- list()
 
-  ratios <- matrix(t(apply(ratios, 1, cumprod)),
-                   nrow = nrow(ratios),
-                   ncol = ncol(ratios))
+  if(cumulated == FALSE) {
+    ratios <- matrix(t(apply(ratios, 1, cumprod)),
+                     nrow = nrow(ratios),
+                     ncol = ncol(ratios))
+  }
 
   for (fold in seq_along(Task$folds)) {
     out[[fold]] <- future::future({
@@ -78,6 +80,7 @@ estimate_tmle <- function(natural, shifted, outcome, node_list, cens, risk, tau,
         ratios[i & rt, t] * weights[i & rt]
     }
 
+
     fit <- sw(
       glm(
         natural$train[i & rt, ][[outcome]] ~ offset(qlogis(m_natural_train[i & rt, t])),
@@ -85,10 +88,11 @@ estimate_tmle <- function(natural, shifted, outcome, node_list, cens, risk, tau,
         family = "binomial"
       )
     )
+    coefs <- coef(fit)
 
-    natural$train[jt & rt, pseudo] <- bound(plogis(qlogis(m_shifted_train[jt & rt, t]) + coef(fit)))
-    m_natural_valid[jv & rv, t] <- bound(plogis(qlogis(m_natural_valid[jv & rv, t]) + coef(fit)))
-    m_shifted_valid[jv & rv, t] <- bound(plogis(qlogis(m_shifted_valid[jv & rv, t]) + coef(fit)))
+    natural$train[jt & rt, pseudo] <- bound(plogis(qlogis(m_shifted_train[jt & rt, t]) + coefs))
+    m_natural_valid[jv & rv, t] <- bound(plogis(qlogis(m_natural_valid[jv & rv, t]) + coefs))
+    m_shifted_valid[jv & rv, t] <- bound(plogis(qlogis(m_shifted_valid[jv & rv, t]) + coefs))
 
     natural$train[!rt, pseudo] <- 0
     m_natural_valid[!rv, t] <- 0

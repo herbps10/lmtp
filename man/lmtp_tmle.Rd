@@ -20,6 +20,8 @@ lmtp_tmle(
   bounds = NULL,
   learners_outcome = "SL.glm",
   learners_trt = "SL.glm",
+  trt_method = "plugin",
+  riesz_control = list(lr = 0.01, epochs = 500, hidden = 32, dropout = 0.1),
   folds = 10,
   weights = NULL,
   .bound = 1e-05,
@@ -92,6 +94,9 @@ of the outcome regression. Default is \code{"SL.glm"}, a main effects GLM.}
 \item{learners_trt}{[\code{character}]\cr A vector of \code{SuperLearner} algorithms for estimation
 of the exposure mechanism. Default is \code{"SL.glm"}, a main effects GLM.
 \bold{Only include candidate learners capable of binary classification}.}
+
+\item{trt_method}{[\code{character}]\cr Method for estimating clever covariates.
+Accepts \code{"plugin"} or \code{"riesz"}.}
 
 \item{folds}{[\code{integer(1)}]\cr
 The number of folds to be used for cross-fitting.}

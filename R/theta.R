@@ -58,18 +58,25 @@ theta_ipw <- function(eta) {
   out
 }
 
-eif <- function(r, tau, shifted, natural) {
+eif <- function(r, tau, shifted, natural, cumulated) {
   natural[is.na(natural)] <- -999
   shifted[is.na(shifted)] <- -999
   m <- shifted[, 2:(tau + 1), drop = FALSE] - natural[, 1:tau, drop = FALSE]
-  rowSums(compute_weights(r, 1, tau) * m, na.rm = TRUE) + shifted[, 1]
+  if(cumulated) {
+    w <- r
+  }
+  else {
+    w <- compute_weights(r, 1, tau)
+  }
+  rowSums(w * m, na.rm = TRUE) + shifted[, 1]
 }
 
 theta_dr <- function(eta, augmented = FALSE) {
   inflnce <- eif(r = eta$r,
                  tau = eta$tau,
                  shifted = eta$m$shifted,
-                 natural = eta$m$natural)
+                 natural = eta$m$natural,
+                 cumulated = eta$cumulated)
 
   theta <- {
     if (augmented)
@@ -104,6 +111,11 @@ theta_dr <- function(eta, augmented = FALSE) {
     eif = inflnce,
     id = eta$id,
     shift = eta$shift,
+    outcome_reg_natural = switch(
+      eta$outcome_type,
+      continuous = rescale_y_continuous(eta$m$natural, eta$bounds),
+      binomial = eta$m$natural
+    ),
     outcome_reg = switch(
       eta$outcome_type,
       continuous = rescale_y_continuous(eta$m$shifted, eta$bounds),

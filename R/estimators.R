@@ -51,6 +51,8 @@
 #' @param learners_trt \[\code{character}\]\cr A vector of \code{SuperLearner} algorithms for estimation
 #'  of the exposure mechanism. Default is \code{"SL.glm"}, a main effects GLM.
 #'  \bold{Only include candidate learners capable of binary classification}.
+#' @param trt_method \[\code{character}\]\cr Method for estimating clever covariates.
+#'  Accepts \code{"plugin"} or \code{"riesz"}.
 #' @param folds \[\code{integer(1)}\]\cr
 #'  The number of folds to be used for cross-fitting.
 #' @param weights \[\code{numeric(nrow(data))}\]\cr
@@ -106,6 +108,8 @@ lmtp_tmle <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
                       id = NULL, bounds = NULL,
                       learners_outcome = "SL.glm",
                       learners_trt = "SL.glm",
+                      trt_method = "plugin",
+                      riesz_control = list(folds = 10, lr = 1e-2, epochs = 5e2, hidden = 32, dropout = 0.1),
                       folds = 10, weights = NULL, .bound = 1e-5, .trim = 0.999,
                       .learners_outcome_folds = 10, .learners_trt_folds = 10,
                       .return_full_fits = FALSE, ...) {
@@ -165,8 +169,32 @@ lmtp_tmle <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
 
   pb <- progressr::progressor(Task$tau*folds*2)
 
-  ratios <- cf_r(Task, learners_trt, mtp, .learners_trt_folds, .trim, .return_full_fits, pb)
-  estims <- cf_tmle(Task, "tmp_lmtp_scaled_outcome", ratios$ratios, learners_outcome, .learners_outcome_folds, .return_full_fits, pb)
+  if(trt_method == "plugin") {
+    ratios <- cf_r(Task, learners_trt, mtp, .learners_trt_folds, .trim, .return_full_fits, pb)
+  }
+  else if(trt_method == "riesz") {
+    Task_folds_riesz <- lmtp_Task$new(
+      data = data,
+      trt = trt,
+      outcome = outcome,
+      time_vary = time_vary,
+      baseline = baseline,
+      cens = cens,
+      k = k,
+      shift = shift,
+      shifted = shifted,
+      id = id,
+      outcome_type = match.arg(outcome_type),
+      V = riesz_control$folds,
+      weights = weights,
+      bounds = bounds,
+      bound = .bound
+    )
+
+    ratios <- cf_rr(Task_folds_riesz, riesz_control$lr, riesz_control$epochs, riesz_control$hidden, riesz_control$dropout, pb)
+  }
+  cumulated = trt_method == "riesz"
+  estims <- cf_tmle(Task, "tmp_lmtp_scaled_outcome", ratios$ratios, learners_outcome, .learners_outcome_folds, .return_full_fits, cumulated, pb)
 
   theta_dr(
     list(
@@ -182,7 +210,8 @@ lmtp_tmle <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
       shift = if (is.null(shifted)) deparse(substitute((shift))) else NULL,
       fits_m = estims$fits,
       fits_r = ratios$fits,
-      outcome_type = Task$outcome_type
+      outcome_type = Task$outcome_type,
+      cumulated = cumulated
     ),
     FALSE
   )
