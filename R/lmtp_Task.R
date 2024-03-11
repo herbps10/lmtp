@@ -16,7 +16,9 @@ lmtp_Task <- R6::R6Class(
     bounds = NULL,
     folds = NULL,
     weights = NULL,
-    initialize = function(data, trt, outcome, time_vary, baseline, cens, k, shift, shifted, id, outcome_type = NULL, V = 10, weights = NULL, bounds = NULL, bound = NULL) {
+    conditional_indicator = NULL,
+    #conditional_indicator_shifted = NULL,
+    initialize = function(data, trt, outcome, time_vary, baseline, cens, conditional, k, shift, shifted, id, outcome_type = NULL, V = 10, weights = NULL, bounds = NULL, bound = NULL) {
       self$tau <- determine_tau(outcome, trt)
       self$n <- nrow(data)
       self$trt <- trt
@@ -30,6 +32,8 @@ lmtp_Task <- R6::R6Class(
       self$id <- data$lmtp_id
       self$folds <- setup_cv(data, data$lmtp_id, V)
 
+
+
       shifted <- {
         if (is.null(shifted) && !is.null(shift))
           shift_data(data, trt, cens, shift)
@@ -40,6 +44,23 @@ lmtp_Task <- R6::R6Class(
           tmp$lmtp_id <- data$lmtp_id
           tmp
         }
+      }
+
+      if(is.null(conditional)) {
+        self$conditional_indicator <- matrix(TRUE, nrow = nrow(data), ncol = length(trt) + 1)
+        #self$conditional_indicator_shifted <- matrix(TRUE, nrow = nrow(data), ncol = length(trt) + 1)
+      }
+      else {
+        self$conditional_indicator <- matrix(TRUE, ncol = length(self$trt) + 1, nrow = nrow(data))
+        self$conditional_indicator[, length(self$trt) + 1] <- TRUE
+
+        #self$conditional_indicator_shifted <- matrix(TRUE, ncol = length(self$trt) + 1, nrow = nrow(data))
+        #self$conditional_indicator_shifted[, length(self$trt) + 1] <- TRUE
+        for(i in seq_along(self$trt)) {
+          self$conditional_indicator[, i] <- conditional[[i]](data, self$trt[[i]])
+          #self$conditional_indicator_shifted[, i] <- conditional(shifted, self$trt[[i]])
+        }
+        #self$conditional_indicator <- cbind(as.matrix(data[, conditional]), rep(TRUE, nrow(data)))
       }
 
       data <- data.table::copy(data)

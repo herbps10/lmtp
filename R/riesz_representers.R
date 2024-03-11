@@ -5,22 +5,22 @@ cf_rr <- function(Task, lr, epochs, hidden, dropout, pb) {
   for (fold in seq_along(Task$folds)) {
     out[[fold]] <- future::future({
       options(fopts)
-
       estimate_rr(
         get_folded_data(Task$natural, Task$folds, fold),
         get_folded_data(Task$shifted, Task$folds, fold),
-        Task$trt, Task$cens, Task$risk, Task$tau, Task$node_list$trt,
+        Task$trt, Task$cens, Task$risk, Task$tau, Task$conditional_indicator[Task$folds[[fold]]$training_set, ],
+        Task$conditional_indicator[Task$folds[[fold]]$validation_set, ], Task$node_list$trt,
         lr, epochs, hidden, dropout, pb
       )
     },
     seed = TRUE)
   }
 
-  recombine_ratios(future::value(out), Task$folds)
-  #recombine_ratios(out, Task$folds)
+  #recombine_ratios(future::value(out), Task$folds)
+  recombine_ratios(out, Task$folds)
 }
 
-estimate_representer <- function(natural, shifted, natural_valid, shifted_valid, lr, epochs, hidden, dropout) {
+estimate_representer <- function(natural, shifted, natural_valid, shifted_valid, conditional_indicator, lr, epochs, hidden, dropout) {
   d_in <- ncol(natural)
   d_out <- 1
 
@@ -50,13 +50,16 @@ estimate_representer <- function(natural, shifted, natural_valid, shifted_valid,
     riesz$parameters
   ), lr = lr, weight_decay = 0)
 
+  conditional_weights <- torch::torch_tensor(conditional_indicator) # / mean(conditional_indicator))
+  conditional_mean <- conditional_weights$mean(dtype = torch::torch_float())
+
   scheduler <- torch::lr_one_cycle(optimizer, max_lr = lr, total_steps = epochs)
   for(epoch in 1:epochs) {
     rr <- learner(natural)
     rr_shifted <- learner(shifted)
 
     # Regression loss
-    loss <- (rr$pow(2) - 2 * rr_shifted)$sum()
+    loss <- (rr$pow(2))$mean(dtype = torch::torch_float()) - 2 * (rr_shifted * conditional_weights)$mean(dtype = torch::torch_float()) / conditional_mean
 
     if(epoch %% 20 == 0) {
       cat("Epoch: ", epoch, " Loss: ", loss$item(), "\n")
@@ -72,16 +75,16 @@ estimate_representer <- function(natural, shifted, natural_valid, shifted_valid,
   riesz$eval()
 
   list(
-    rr = torch::as_array(learner(natural_valid)),
-    rr_shifted = torch::as_array(learner(shifted_valid))
+    rr = torch::as_array(learner(natural_valid) * conditional_mean),
+    rr_shifted = torch::as_array(learner(shifted_valid) * conditional_mean)
   )
 }
 
-estimate_rr <- function(natural, shifted, trt, cens, risk, tau, node_list, lr, epochs, hidden, dropout, pb) {
+estimate_rr <- function(natural, shifted, trt, cens, risk, tau, conditional_indicator, conditional_indicator_valid, node_list, lr, epochs, hidden, dropout, pb) {
   representers <- matrix(nrow = nrow(natural$valid), ncol = tau)
   fits <- list()
 
-  for (t in 1:tau) {
+  for (t in tau:1) {
     jrt <- censored(natural$train, cens, t)$j
     drt <- at_risk(natural$train, risk, t)
     irv <- censored(natural$valid, cens, t)$i
@@ -92,19 +95,29 @@ estimate_rr <- function(natural, shifted, trt, cens, risk, tau, node_list, lr, e
 
     vars <- c(node_list[[t]], cens[[t]])
 
+    new_shifted <- shifted
+    #new_shifted <- natural
+    #new_shifted$train[[paste0("A_", t)]] <- shifted$train[[paste0("A_", t)]]
+    #new_shifted$valid[[paste0("A_", t)]] <- shifted$valid[[paste0("A_", t)]]
+
     cat("t = ", t, "\n")
+    cumulative_indicator <- as.logical(apply(conditional_indicator[, 1:t, drop = FALSE], 1, prod))
+    #cumulative_indicator <- conditional_indicator[, t]
     rr <- estimate_representer(
       natural$train[jrt & drt, vars],
-      shifted$train[jrt & drt, vars],
+      new_shifted$train[jrt & drt, vars],
       natural$valid[jrv & drv, vars],
-      shifted$valid[jrv & drv, vars],
+      new_shifted$valid[jrv & drv, vars],
+      #conditional_indicator[, t],
+      cumulative_indicator,
       lr,
       epochs,
       hidden,
       dropout
     )
 
-    representers[jrv & drv, t] <- rr$rr
+    cumulative_indicator_future_valid <- as.logical(apply(conditional_indicator_valid[, (t + 1):(tau + 1), drop = FALSE], 1, prod))
+    representers[jrv & drv, t] <- rr$rr * cumulative_indicator_future_valid
 
     pb()
   }

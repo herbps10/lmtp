@@ -58,7 +58,11 @@ theta_ipw <- function(eta) {
   out
 }
 
-eif <- function(r, tau, shifted, natural, cumulated) {
+eif <- function(r, tau, shifted, natural, cumulated, conditional_indicator) {
+  cumulative_indicator <- as.logical(apply(conditional_indicator, 1, prod))
+
+  indicator <- t(apply(conditional_indicator, 1, \(x) as.logical(rev(cumprod(x)))))
+
   natural[is.na(natural)] <- -999
   shifted[is.na(shifted)] <- -999
   m <- shifted[, 2:(tau + 1), drop = FALSE] - natural[, 1:tau, drop = FALSE]
@@ -68,15 +72,44 @@ eif <- function(r, tau, shifted, natural, cumulated) {
   else {
     w <- compute_weights(r, 1, tau)
   }
-  rowSums(w * m, na.rm = TRUE) + shifted[, 1]
+
+  # Need to include weights?
+  theta <- mean(shifted[cumulative_indicator, 1])
+  1 / mean(cumulative_indicator) * (rowSums(w * m , na.rm = TRUE) + cumulative_indicator * (shifted[, 1] - theta))
+  #1 / mean(conditional_indicator) * conditional_indicator * (rowSums(w * m, na.rm = TRUE) + shifted[, 1] - theta)
 }
 
 theta_dr <- function(eta, augmented = FALSE) {
+  cumulative_indicator <- as.logical(apply(eta$conditional_indicator, 1, prod))
+
+  #eta$r[, 1] <- case_when(
+  #  dat$A_1 == 0 ~ 0,
+  #  dat$A_1 == 1 ~ 1,
+  #  dat$A_1 == 2 ~ 2,
+  #)
+  #eta$r[, 2] <- eta$r[, 1] * case_when(
+  #  eta$data$A_2 == 0 ~ 0,
+  #  eta$data$A_2 == 1 ~ 1,
+  #  eta$data$A_2 == 2 ~ 1,
+  #)
+  #eta$m$shifted[, 1] <- scale_y(case_when(
+  #  eta$data$A_1 == 0 ~ 1,
+  #  eta$data$A_1 == 1 ~ 2,
+  #  eta$data$A_1 == 2 ~ 3,
+  #  eta$data$A_1 == 3 ~ 3,
+  #), eta$bounds)
+  #eta$m$natural[, 1] <- scale_y(case_when(
+  #  eta$data$A_1 == 0 ~ 0,
+  #  eta$data$A_1 == 1 ~ 1,
+  #  eta$data$A_1 == 2 ~ 2,
+  #  eta$data$A_1 == 3 ~ 3,
+  #), eta$bounds)
   inflnce <- eif(r = eta$r,
                  tau = eta$tau,
                  shifted = eta$m$shifted,
                  natural = eta$m$natural,
-                 cumulated = eta$cumulated)
+                 cumulated = eta$cumulated,
+                 conditional_indicator = eta$conditional_indicator)
 
   theta <- {
     if (augmented)
@@ -86,9 +119,9 @@ theta_dr <- function(eta, augmented = FALSE) {
         weighted.mean(inflnce, eta$weights)
     else
       if (is.null(eta$weights))
-        mean(eta$m$shifted[, 1])
+        mean(eta$m$shifted[cumulative_indicator, 1])
       else
-        weighted.mean(eta$m$shifted[, 1], eta$weights)
+        weighted.mean(eta$m$shifted[cumulative_indicator, 1], eta$weights[cumulative_indicator])
   }
 
   if (eta$outcome_type == "continuous") {

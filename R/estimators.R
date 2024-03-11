@@ -102,7 +102,7 @@
 #' @example inst/examples/tmle-ex.R
 #' @export
 lmtp_tmle <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
-                      cens = NULL, shift = NULL, shifted = NULL, k = Inf,
+                      cens = NULL, conditional = NULL, shift = NULL, shifted = NULL, k = Inf,
                       mtp = FALSE, outcome_type = c("binomial", "continuous", "survival"),
                       # intervention_type = c("static", "dynamic", "mtp"),
                       id = NULL, bounds = NULL,
@@ -141,6 +141,7 @@ lmtp_tmle <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
   checkmate::assertNumber(.bound)
   checkmate::assertNumber(.trim, upper = 1)
   checkmate::assertLogical(.return_full_fits, len = 1)
+  #checkmate::assertCharacter(conditional, null.ok = TRUE)
 
   extras <- list(...)
   if ("intervention_type" %in% names(extras)) {
@@ -149,6 +150,8 @@ lmtp_tmle <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
             call. = FALSE)
   }
 
+
+
   Task <- lmtp_Task$new(
     data = data,
     trt = trt,
@@ -156,6 +159,7 @@ lmtp_tmle <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
     time_vary = time_vary,
     baseline = baseline,
     cens = cens,
+    conditional = conditional,
     k = k,
     shift = shift,
     shifted = shifted,
@@ -180,6 +184,7 @@ lmtp_tmle <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
       time_vary = time_vary,
       baseline = baseline,
       cens = cens,
+      conditional = conditional,
       k = k,
       shift = shift,
       shifted = shifted,
@@ -196,11 +201,14 @@ lmtp_tmle <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
   cumulated = trt_method == "riesz"
   estims <- cf_tmle(Task, "tmp_lmtp_scaled_outcome", ratios$ratios, learners_outcome, .learners_outcome_folds, .return_full_fits, cumulated, pb)
 
+
+
   theta_dr(
     list(
       estimator = "TMLE",
       m = list(natural = estims$natural, shifted = estims$shifted),
       r = ratios$ratios,
+      conditional_indicator = Task$conditional_indicator,
       tau = Task$tau,
       folds = Task$folds,
       id = Task$id,
@@ -211,7 +219,8 @@ lmtp_tmle <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
       fits_m = estims$fits,
       fits_r = ratios$fits,
       outcome_type = Task$outcome_type,
-      cumulated = cumulated
+      cumulated = cumulated,
+      data = data
     ),
     FALSE
   )
@@ -484,6 +493,7 @@ lmtp_sdr <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
 #'
 #' @example inst/examples/sub-ex.R
 lmtp_sub <- function(data, trt, outcome, baseline = NULL, time_vary = NULL, cens = NULL,
+                     conditional = NULL,
                      shift = NULL, shifted = NULL, k = Inf,
                      outcome_type = c("binomial", "continuous", "survival"),
                      id = NULL, bounds = NULL, learners = "SL.glm",
@@ -523,6 +533,7 @@ lmtp_sub <- function(data, trt, outcome, baseline = NULL, time_vary = NULL, cens
     time_vary = time_vary,
     baseline = baseline,
     cens = cens,
+    conditional = conditional,
     k = k,
     shift = shift,
     shifted = shifted,
@@ -640,6 +651,7 @@ lmtp_sub <- function(data, trt, outcome, baseline = NULL, time_vary = NULL, cens
 #'
 #' @example inst/examples/ipw-ex.R
 lmtp_ipw <- function(data, trt, outcome, baseline = NULL, time_vary = NULL, cens = NULL,
+                     conditional = NULL,
                      shift = NULL, shifted = NULL, mtp = FALSE,
                      # intervention_type = c("static", "dynamic", "mtp"),
                      k = Inf, id = NULL,
@@ -682,6 +694,7 @@ lmtp_ipw <- function(data, trt, outcome, baseline = NULL, time_vary = NULL, cens
     time_vary = time_vary,
     baseline = baseline,
     cens = cens,
+    conditional = conditional,
     k = k,
     shift = shift,
     shifted = shifted,

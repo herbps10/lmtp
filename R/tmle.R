@@ -13,7 +13,9 @@ cf_tmle <- function(Task, outcome, ratios, learners, lrnr_folds, full_fits, cumu
         get_folded_data(Task$natural, Task$folds, fold),
         get_folded_data(Task$shifted, Task$folds, fold),
         outcome, Task$node_list$outcome, Task$cens, Task$risk,
-        Task$tau, Task$outcome_type,
+        Task$tau,
+        Task$conditional_indicator[Task$folds[[fold]]$training_set, , drop = FALSE],
+        Task$outcome_type,
         get_folded_data(ratios, Task$folds, fold)$train,
         Task$weights[Task$folds[[fold]]$training_set],
         learners, lrnr_folds, pb, full_fits
@@ -22,7 +24,7 @@ cf_tmle <- function(Task, outcome, ratios, learners, lrnr_folds, full_fits, cumu
     seed = TRUE)
   }
 
-  out <- future::value(out)
+  #out <- future::value(out)
 
   list(
     natural = recombine_outcome(out, "natural", Task$folds),
@@ -31,7 +33,7 @@ cf_tmle <- function(Task, outcome, ratios, learners, lrnr_folds, full_fits, cumu
   )
 }
 
-estimate_tmle <- function(natural, shifted, outcome, node_list, cens, risk, tau, outcome_type, ratios, weights, learners, lrnr_folds, pb, full_fits) {
+estimate_tmle <- function(natural, shifted, outcome, node_list, cens, risk, tau, conditional_indicator, outcome_type, ratios, weights, learners, lrnr_folds, pb, full_fits) {
   m_natural_train <- m_shifted_train <- matrix(nrow = nrow(natural$train), ncol = tau)
   m_natural_valid <- m_shifted_valid <- matrix(nrow = nrow(natural$valid), ncol = tau)
 
@@ -42,6 +44,11 @@ estimate_tmle <- function(natural, shifted, outcome, node_list, cens, risk, tau,
     jv <- censored(natural$valid, cens, t)$j
     rt <- at_risk(natural$train, risk, t)
     rv <- at_risk(natural$valid, risk, t)
+
+    in_conditioning_set <- apply(conditional_indicator[, (t + 1):(tau + 1), drop = FALSE], 1, prod)
+    #conditioning_set <- conditional_indicator[, t + 1]
+    #in_conditioning_set <- rep(TRUE, nrow(natural$train))
+    #in_conditioning_set <- conditional_indicator[, t + 1]
 
     pseudo <- paste0("tmp_lmtp_pseudo", t)
     vars <- node_list[[t]]
@@ -54,11 +61,11 @@ estimate_tmle <- function(natural, shifted, outcome, node_list, cens, risk, tau,
     learners <- check_variation(natural$train[i & rt, ][[outcome]], learners)
 
     fit <- run_ensemble(
-      natural$train[i & rt, ][[outcome]],
-      natural$train[i & rt, vars],
+      natural$train[i & rt & in_conditioning_set, ][[outcome]],
+      natural$train[i & rt & in_conditioning_set, vars],
       learners,
       outcome_type,
-      id = natural$train[i & rt,][["lmtp_id"]],
+      id = natural$train[i & rt & in_conditioning_set,][["lmtp_id"]],
       lrnr_folds
     )
 
@@ -68,10 +75,15 @@ estimate_tmle <- function(natural, shifted, outcome, node_list, cens, risk, tau,
       fits[[t]] <- extract_sl_weights(fit)
     }
 
+    new_shifted <- natural
+    new_shifted$train[[paste0("A_", t)]] <- shifted$train[[paste0("A_", t)]]
+    new_shifted$valid[[paste0("A_", t)]] <- shifted$valid[[paste0("A_", t)]]
+    #new_shifted <- shifted
+
     m_natural_train[jt & rt, t] <- bound(SL_predict(fit, natural$train[jt & rt, vars]), 1e-05)
-    m_shifted_train[jt & rt, t] <- bound(SL_predict(fit, shifted$train[jt & rt, vars]), 1e-05)
+    m_shifted_train[jt & rt, t] <- bound(SL_predict(fit, new_shifted$train[jt & rt, vars]), 1e-05)
     m_natural_valid[jv & rv, t] <- bound(SL_predict(fit, natural$valid[jv & rv, vars]), 1e-05)
-    m_shifted_valid[jv & rv, t] <- bound(SL_predict(fit, shifted$valid[jv & rv, vars]), 1e-05)
+    m_shifted_valid[jv & rv, t] <- bound(SL_predict(fit, new_shifted$valid[jv & rv, vars]), 1e-05)
 
     wts <- {
       if (is.null(weights))
@@ -79,7 +91,6 @@ estimate_tmle <- function(natural, shifted, outcome, node_list, cens, risk, tau,
       else
         ratios[i & rt, t] * weights[i & rt]
     }
-
 
     fit <- sw(
       glm(
@@ -89,6 +100,7 @@ estimate_tmle <- function(natural, shifted, outcome, node_list, cens, risk, tau,
       )
     )
     coefs <- coef(fit)
+    print(coefs)
 
     natural$train[jt & rt, pseudo] <- bound(plogis(qlogis(m_shifted_train[jt & rt, t]) + coefs))
     m_natural_valid[jv & rv, t] <- bound(plogis(qlogis(m_natural_valid[jv & rv, t]) + coefs))

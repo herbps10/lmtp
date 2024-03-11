@@ -9,7 +9,7 @@ cf_r <- function(Task, learners, mtp, lrnr_folds, trim, full_fits, pb) {
       estimate_r(
         get_folded_data(Task$natural, Task$folds, fold),
         get_folded_data(Task$shifted, Task$folds, fold),
-        Task$trt, Task$cens, Task$risk, Task$tau, Task$node_list$trt,
+        Task$trt, Task$cens, Task$risk, Task$tau, Task$conditional, Task$node_list$trt,
         learners, pb, mtp, lrnr_folds, full_fits
       )
     },
@@ -19,7 +19,7 @@ cf_r <- function(Task, learners, mtp, lrnr_folds, trim, full_fits, pb) {
   trim_ratios(recombine_ratios(future::value(out), Task$folds), trim)
 }
 
-estimate_r <- function(natural, shifted, trt, cens, risk, tau, node_list, learners, pb, mtp, lrnr_folds, full_fits) {
+estimate_r <- function(natural, shifted, trt, cens, risk, tau, conditional, node_list, learners, pb, mtp, lrnr_folds, full_fits) {
   densratios <- matrix(nrow = nrow(natural$valid), ncol = tau)
   fits <- list()
 
