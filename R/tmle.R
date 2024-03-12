@@ -24,7 +24,7 @@ cf_tmle <- function(Task, outcome, ratios, learners, lrnr_folds, full_fits, cumu
     seed = TRUE)
   }
 
-  #out <- future::value(out)
+  out <- future::value(out)
 
   list(
     natural = recombine_outcome(out, "natural", Task$folds),
