@@ -16,7 +16,7 @@ cf_rr <- function(Task, lr, epochs, hidden, dropout, pb) {
     seed = TRUE)
   }
 
-  #recombine_ratios(future::value(out), Task$folds)
+  out <- future::value(out)
   recombine_ratios(out, Task$folds)
 }
 
