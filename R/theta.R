@@ -82,28 +82,6 @@ eif <- function(r, tau, shifted, natural, cumulated, conditional_indicator) {
 theta_dr <- function(eta, augmented = FALSE) {
   cumulative_indicator <- as.logical(apply(eta$conditional_indicator, 1, prod))
 
-  #eta$r[, 1] <- case_when(
-  #  dat$A_1 == 0 ~ 0,
-  #  dat$A_1 == 1 ~ 1,
-  #  dat$A_1 == 2 ~ 2,
-  #)
-  #eta$r[, 2] <- eta$r[, 1] * case_when(
-  #  eta$data$A_2 == 0 ~ 0,
-  #  eta$data$A_2 == 1 ~ 1,
-  #  eta$data$A_2 == 2 ~ 1,
-  #)
-  #eta$m$shifted[, 1] <- scale_y(case_when(
-  #  eta$data$A_1 == 0 ~ 1,
-  #  eta$data$A_1 == 1 ~ 2,
-  #  eta$data$A_1 == 2 ~ 3,
-  #  eta$data$A_1 == 3 ~ 3,
-  #), eta$bounds)
-  #eta$m$natural[, 1] <- scale_y(case_when(
-  #  eta$data$A_1 == 0 ~ 0,
-  #  eta$data$A_1 == 1 ~ 1,
-  #  eta$data$A_1 == 2 ~ 2,
-  #  eta$data$A_1 == 3 ~ 3,
-  #), eta$bounds)
   inflnce <- eif(r = eta$r,
                  tau = eta$tau,
                  shifted = eta$m$shifted,
