@@ -1,4 +1,4 @@
-cf_rr <- function(Task, lr, epochs, hidden, dropout, pb) {
+cf_rr <- function(Task, start_t, lr, epochs, hidden, dropout, pb) {
   fopts <- options("lmtp.bound", "lmtp.trt.length")
   out <- list()
 
@@ -10,6 +10,7 @@ cf_rr <- function(Task, lr, epochs, hidden, dropout, pb) {
         get_folded_data(Task$shifted, Task$folds, fold),
         Task$trt, Task$cens, Task$risk, Task$tau, Task$conditional_indicator[Task$folds[[fold]]$training_set, ],
         Task$conditional_indicator[Task$folds[[fold]]$validation_set, ], Task$node_list$trt,
+        start_t,
         lr, epochs, hidden, dropout, pb
       )
     },
@@ -80,11 +81,11 @@ estimate_representer <- function(natural, shifted, natural_valid, shifted_valid,
   )
 }
 
-estimate_rr <- function(natural, shifted, trt, cens, risk, tau, conditional_indicator, conditional_indicator_valid, node_list, lr, epochs, hidden, dropout, pb) {
+estimate_rr <- function(natural, shifted, trt, cens, risk, tau, conditional_indicator, conditional_indicator_valid, node_list, start_t, lr, epochs, hidden, dropout, pb) {
   representers <- matrix(nrow = nrow(natural$valid), ncol = tau)
   fits <- list()
 
-  for (t in tau:1) {
+  for (t in tau:start_t) {
     jrt <- censored(natural$train, cens, t)$j
     drt <- at_risk(natural$train, risk, t)
     irv <- censored(natural$valid, cens, t)$i

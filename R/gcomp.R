@@ -8,7 +8,9 @@ cf_sub <- function(Task, outcome, learners, lrnr_folds, full_fits, pb) {
         get_folded_data(Task$shifted, Task$folds, fold),
         outcome,
         Task$node_list$outcome, Task$cens,
-        Task$risk, Task$tau, Task$outcome_type,
+        Task$risk, Task$tau,
+        Task$conditional_indicator[Task$folds[[fold]]$training_set, , drop = FALSE],
+        Task$outcome_type,
         learners, lrnr_folds, pb, full_fits
       )
     },
@@ -24,7 +26,7 @@ cf_sub <- function(Task, outcome, learners, lrnr_folds, full_fits, pb) {
 }
 
 estimate_sub <- function(natural, shifted, outcome, node_list, cens, risk,
-                         tau, outcome_type, learners, lrnr_folds, pb, full_fits) {
+                         tau, conditional_indicator, outcome_type, learners, lrnr_folds, pb, full_fits) {
 
   m <- matrix(nrow = nrow(natural$valid), ncol = tau)
   fits <- list()
@@ -35,6 +37,8 @@ estimate_sub <- function(natural, shifted, outcome, node_list, cens, risk,
     jv <- censored(natural$valid, cens, t)$j
     rt <- at_risk(natural$train, risk, t)
     rv <- at_risk(natural$valid, risk, t)
+
+    in_conditioning_set <- apply(conditional_indicator[, (t + 1):(tau + 1), drop = FALSE], 1, prod)
 
     pseudo <- paste0("tmp_lmtp_pseudo", t)
     vars <- node_list[[t]]
@@ -47,11 +51,11 @@ estimate_sub <- function(natural, shifted, outcome, node_list, cens, risk,
     learners <- check_variation(natural$train[i & rt, ][[outcome]], learners)
 
     fit <- run_ensemble(
-      natural$train[i & rt, ][[outcome]],
-      natural$train[i & rt, vars],
+      natural$train[i & rt & in_conditioning_set, ][[outcome]],
+      natural$train[i & rt & in_conditioning_set, vars],
       learners,
       outcome_type,
-      id = natural$train[i & rt, ][["lmtp_id"]],
+      id = natural$train[i & rt & in_conditioning_set, ][["lmtp_id"]],
       lrnr_folds
     )
 
@@ -61,8 +65,12 @@ estimate_sub <- function(natural, shifted, outcome, node_list, cens, risk,
       fits[[t]] <- extract_sl_weights(fit)
     }
 
-    natural$train[jt & rt, pseudo] <- bound(SL_predict(fit, shifted$train[jt & rt, vars]), 1e-05)
-    m[jv & rv, t] <- bound(SL_predict(fit, shifted$valid[jv & rv, vars]), 1e-05)
+    new_shifted <- natural
+    new_shifted$train[[paste0("A_", t)]] <- shifted$train[[paste0("A_", t)]]
+    new_shifted$valid[[paste0("A_", t)]] <- shifted$valid[[paste0("A_", t)]]
+
+    natural$train[jt & rt, pseudo] <- bound(SL_predict(fit, new_shifted$train[jt & rt, vars]), 1e-05)
+    m[jv & rv, t] <- bound(SL_predict(fit, new_shifted$valid[jv & rv, vars]), 1e-05)
 
     natural$train[!rt, pseudo] <- 0
     m[!rv, t] <- 0

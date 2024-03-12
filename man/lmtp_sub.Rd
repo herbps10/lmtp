@@ -11,6 +11,7 @@ lmtp_sub(
   baseline = NULL,
   time_vary = NULL,
   cens = NULL,
+  conditional = NULL,
   shift = NULL,
   shifted = NULL,
   k = Inf,

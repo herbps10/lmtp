@@ -25,7 +25,7 @@ cf_tmle <- function(Task, outcome, ratios, learners, lrnr_folds, full_fits, cumu
   }
 
   out <- future::value(out)
-  
+
   list(
     natural = recombine_outcome(out, "natural", Task$folds),
     shifted = cbind(recombine_outcome(out, "shifted", Task$folds), Task$natural[["tmp_lmtp_scaled_outcome"]]),
@@ -75,10 +75,10 @@ estimate_tmle <- function(natural, shifted, outcome, node_list, cens, risk, tau,
       fits[[t]] <- extract_sl_weights(fit)
     }
 
+    # TODO
     new_shifted <- natural
     new_shifted$train[[paste0("A_", t)]] <- shifted$train[[paste0("A_", t)]]
     new_shifted$valid[[paste0("A_", t)]] <- shifted$valid[[paste0("A_", t)]]
-    #new_shifted <- shifted
 
     m_natural_train[jt & rt, t] <- bound(SL_predict(fit, natural$train[jt & rt, vars]), 1e-05)
     m_shifted_train[jt & rt, t] <- bound(SL_predict(fit, new_shifted$train[jt & rt, vars]), 1e-05)

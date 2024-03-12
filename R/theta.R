@@ -3,8 +3,10 @@ theta_sub <- function(eta) {
     theta <- mean(eta$m[, 1])
   }
 
+  cumulative_indicator <- as.logical(apply(eta$conditional_indicator, 1, prod))
+
   if (!is.null(eta$weights)) {
-    theta <- weighted.mean(eta$m[, 1], eta$weights)
+    theta <- weighted.mean(eta$m[cumulative_indicator, 1], eta$weights)
   }
 
   if (eta$outcome_type == "continuous") {
@@ -32,15 +34,17 @@ theta_sub <- function(eta) {
 }
 
 theta_ipw <- function(eta) {
+  cumulative_indicator <- as.logical(apply(eta$conditional_indicator, 1, prod))
+
   if (is.null(eta$weights)) {
-    theta <- mean(eta$r[, eta$tau]*missing_outcome(eta$y))
+    theta <- mean(eta$r[, eta$tau]*missing_outcome(eta$y)) / mean(cumulative_indicator)
   }
 
   if (!is.null(eta$weights)) {
     theta <- weighted.mean(
       eta$r[, eta$tau]*missing_outcome(eta$y),
       eta$weights
-    )
+    ) / weighted.mean(cumulative_indicator, eta$weights)
   }
 
   out <- list(
