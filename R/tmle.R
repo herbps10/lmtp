@@ -75,15 +75,10 @@ estimate_tmle <- function(natural, shifted, outcome, node_list, cens, risk, tau,
       fits[[t]] <- extract_sl_weights(fit)
     }
 
-    # TODO
-    new_shifted <- natural
-    new_shifted$train[[paste0("A_", t)]] <- shifted$train[[paste0("A_", t)]]
-    new_shifted$valid[[paste0("A_", t)]] <- shifted$valid[[paste0("A_", t)]]
-
     m_natural_train[jt & rt, t] <- bound(SL_predict(fit, natural$train[jt & rt, vars]), 1e-05)
-    m_shifted_train[jt & rt, t] <- bound(SL_predict(fit, new_shifted$train[jt & rt, vars]), 1e-05)
+    m_shifted_train[jt & rt, t] <- bound(SL_predict(fit, shifted$train[jt & rt, vars]), 1e-05)
     m_natural_valid[jv & rv, t] <- bound(SL_predict(fit, natural$valid[jv & rv, vars]), 1e-05)
-    m_shifted_valid[jv & rv, t] <- bound(SL_predict(fit, new_shifted$valid[jv & rv, vars]), 1e-05)
+    m_shifted_valid[jv & rv, t] <- bound(SL_predict(fit, shifted$valid[jv & rv, vars]), 1e-05)
 
     wts <- {
       if (is.null(weights))
