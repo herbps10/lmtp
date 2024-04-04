@@ -24,7 +24,7 @@ cf_tmle <- function(Task, outcome, ratios, learners, lrnr_folds, full_fits, cumu
     seed = TRUE)
   }
 
-  out <- future::value(out)
+  #out <- future::value(out)
 
   list(
     natural = recombine_outcome(out, "natural", Task$folds),
@@ -102,6 +102,7 @@ estimate_tmle <- function(natural, shifted, outcome, node_list, cens, risk, tau,
       )
     )
     coefs <- coef(fit)
+    print(coefs)
 
     natural$train[jt & rt, pseudo] <- bound(plogis(qlogis(m_shifted_train[jt & rt, t]) + coefs))
     m_natural_valid[jv & rv, t] <- bound(plogis(qlogis(m_natural_valid[jv & rv, t]) + coefs))

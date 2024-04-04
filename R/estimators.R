@@ -200,6 +200,8 @@ lmtp_tmle <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
   cumulated = trt_method == "riesz"
   estims <- cf_tmle(Task, "tmp_lmtp_scaled_outcome", ratios$ratios, learners_outcome, .learners_outcome_folds, .return_full_fits, cumulated, pb)
 
+
+
   theta_dr(
     list(
       estimator = "TMLE",
