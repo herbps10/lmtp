@@ -6,7 +6,9 @@ cf_sdr <- function(Task, outcome, ratios, learners, lrnr_folds, full_fits, pb) {
         get_folded_data(Task$natural, Task$folds, fold),
         get_folded_data(Task$shifted, Task$folds, fold),
         outcome, Task$node_list$outcome,
-        Task$cens, Task$risk, Task$tau, Task$outcome_type,
+        Task$cens, Task$risk, Task$tau,
+        Task$conditional_indicator[Task$folds[[fold]]$training_set, , drop = FALSE],
+        Task$outcome_type,
         get_folded_data(ratios, Task$folds, fold)$train,
         learners, lrnr_folds, pb, full_fits
       )
@@ -22,7 +24,8 @@ cf_sdr <- function(Task, outcome, ratios, learners, lrnr_folds, full_fits, pb) {
 }
 
 estimate_sdr <- function(natural, shifted, outcome, node_list, cens, risk, tau,
-                         outcome_type, ratios, learners, lrnr_folds, pb, full_fits) {
+                         conditional_indicator, outcome_type, ratios, learners,
+                         lrnr_folds, pb, full_fits) {
 
   m_natural_train <- m_shifted_train <-
     cbind(matrix(nrow = nrow(natural$train), ncol = tau), natural$train[[outcome]])
@@ -59,17 +62,21 @@ estimate_sdr <- function(natural, shifted, outcome, node_list, cens, risk, tau,
     }
 
     if (t < tau) {
-      tmp <- transform_sdr(compute_weights(ratios, t + 1, tau),
+      in_conditioning_set <- apply(conditional_indicator[, (t + 1):(tau + 1), drop = FALSE], 1, prod)
+
+      weights <- compute_weights(ratios, t + 1, tau)
+
+      tmp <- transform_sdr(weights,
                            t, tau,
                            m_shifted_train,
                            m_natural_train)
 
       natural$train[, pseudo] <- shifted$train[, pseudo] <- tmp
 
-      learners <- check_variation(natural$train[i & rt, ][[pseudo]], learners)
+      learners <- check_variation(natural$train[i & rt, in_conditioning_set][[pseudo]], learners)
 
-      fit <- run_ensemble(natural$train[i & rt, ][[pseudo]],
-                          natural$train[i & rt, vars],
+      fit <- run_ensemble(natural$train[i & rt & in_conditioning_set, ][[pseudo]],
+                          natural$train[i & rt & in_conditioning_set, vars],
                           learners,
                           "continuous",
                           id = natural$train[i & rt, ][["lmtp_id"]],

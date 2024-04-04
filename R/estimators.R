@@ -325,7 +325,7 @@ lmtp_tmle <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
 #' @example inst/examples/sdr-ex.R
 #' @export
 lmtp_sdr <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
-                     cens = NULL, shift = NULL, shifted = NULL, k = Inf,
+                     cens = NULL, conditional = NULL, shift = NULL, shifted = NULL, k = Inf,
                      mtp = FALSE,
                      # intervention_type = c("static", "dynamic", "mtp"),
                      outcome_type = c("binomial", "continuous", "survival"),
@@ -371,6 +371,7 @@ lmtp_sdr <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
     time_vary = time_vary,
     baseline = baseline,
     cens = cens,
+    conditional = conditional,
     k = k,
     shift = shift,
     shifted = shifted,
@@ -392,6 +393,7 @@ lmtp_sdr <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
   pb <- progressr::progressor(Task$tau*folds*2)
 
   ratios <- cf_r(Task, learners_trt, mtp, .learners_trt_folds, .trim, .return_full_fits, pb)
+
   estims <- cf_sdr(Task, "tmp_lmtp_scaled_outcome", ratios$ratios, learners_outcome, .learners_outcome_folds, .return_full_fits, pb)
 
   theta_dr(
@@ -399,6 +401,7 @@ lmtp_sdr <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
       estimator = "SDR",
       m = list(natural = estims$natural, shifted = estims$shifted),
       r = ratios$ratios,
+      conditional_indicator = Task$conditional_indicator,
       tau = Task$tau,
       folds = Task$folds,
       id = Task$id,
@@ -408,6 +411,7 @@ lmtp_sdr <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
       shift = if (is.null(shifted)) deparse(substitute((shift))) else NULL,
       fits_m = estims$fits,
       fits_r = ratios$fits,
+      cumulated = FALSE,
       outcome_type = Task$outcome_type
     ),
     TRUE
