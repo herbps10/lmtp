@@ -56,6 +56,7 @@ theta_ipw <- function(eta) {
     high = NA_real_,
     shift = eta$shift,
     density_ratios = eta$r,
+    conditional_probs = eta$G,
     fits_r = eta$fits_r
   )
 

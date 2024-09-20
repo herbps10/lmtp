@@ -52,9 +52,14 @@ estimate_sub <- function(natural, shifted, trt, outcome, node_list, cens, risk,
       outcome_type <- "continuous"
     }
 
+    learners_t <- learners
+    if(length(learners) == tau && is.list(learners[[1]][[1]])) {
+      learners_t <- learners[[t]]
+    } 
+
     fit <- run_ensemble(natural$train[i & rt & in_conditioning_set, c("lmtp_id", vars, outcome)],
                         outcome,
-                        learners,
+                        learners_t,
                         outcome_type,
                         "lmtp_id",
                         control$.learners_outcome_folds)

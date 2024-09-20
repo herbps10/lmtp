@@ -1,4 +1,8 @@
 run_ensemble <- function(data, y, learners, outcome_type, id, folds) {
+  if(sd(data[[y]]) < 1e-5) {
+    warning("Outcome has zero variance")
+    learners <- c("mean")
+  }
   fit <- mlr3superlearner(data = data,
                           target = y,
                           library = learners,

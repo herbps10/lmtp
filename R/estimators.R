@@ -161,7 +161,7 @@ lmtp_tmle <- function(data, trt, outcome, baseline = NULL, time_vary = NULL,
   pb <- progressr::progressor(task$tau*folds*2)
 
   if(is.null(conditional)) {
-    conditional_probs <- list(1, G = matrix(nrow = nrow(data), ncol = task$tau))
+    conditional_probs <- list(G = matrix(1, nrow = nrow(data), ncol = task$tau + 1))
   }
   else {
     conditional_probs <- cf_conditional(task, learners_conditional, mtp, control, pb)
@@ -629,7 +629,7 @@ lmtp_ipw <- function(data, trt, outcome, baseline = NULL, time_vary = NULL, cens
                      k = Inf, id = NULL,
                      outcome_type = c("binomial", "continuous", "survival"),
                      learners = c("mean", "glm"),
-                    learners_conditional = c("mean", "glm"),
+                     learners_conditional = c("mean", "glm"),
                      riesz = FALSE, folds = 10, weights = NULL,
                      control = lmtp_control()) {
 
@@ -686,7 +686,7 @@ lmtp_ipw <- function(data, trt, outcome, baseline = NULL, time_vary = NULL, cens
 
   if(is.null(conditional)) {
     pb <- progressr::progressor(task$tau*folds)
-    conditional_probs <- list(1, G = matrix(nrow = nrow(data), ncol = task$tau))
+    conditional_probs <- list(G = matrix(1, nrow = nrow(data), ncol = task$tau + 1))
   }
   else {
     pb <- progressr::progressor(task$tau*folds * 2)
@@ -715,6 +715,7 @@ lmtp_ipw <- function(data, trt, outcome, baseline = NULL, time_vary = NULL, cens
       folds = task$folds,
       weights = task$weights,
       tau = task$tau,
+      G = conditional_probs$G,
       shift = if (is.null(shifted)) deparse(substitute((shift))) else NULL,
       fits_r = ratios$fits,
       conditional = task$conditional

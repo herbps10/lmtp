@@ -61,8 +61,13 @@ estimate_rr <- function(natural, shifted, G, trt, cens, risk, tau, conditional, 
     new_shifted_valid <- natural$valid
     new_shifted_valid[, trt_t] <- shifted$valid[, trt_t]
 
+    learners_t <- learners
+    if(length(learners) == tau && is.list(learners[[1]][[1]])) {
+      learners_t <- learners[[t]]
+    } 
+
     fit <- run_riesz_ensemble(
-      learners,
+      learners_t,
       natural$train[jrt & drt, vars, drop = FALSE],
       new_shifted[jrt & drt, vars, drop = FALSE],
       cumulative_indicator_train[jrt & drt, drop = FALSE],
@@ -89,6 +94,10 @@ estimate_rr <- function(natural, shifted, G, trt, cens, risk, tau, conditional, 
     prev_riesz_valid <- matrix(fit$predictions, ncol = 1)
 
     representers[, t] <- pred
+
+    if(all(representers[, t] == 0)) {
+      warning(paste0("All density ratios at time ", t, " are zero."))
+    }
 
     progress_bar()
   }

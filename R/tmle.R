@@ -63,9 +63,14 @@ estimate_tmle <- function(natural, shifted, conditional_prob, trt, outcome, node
       outcome_type <- "continuous"
     }
 
+    learners_t <- learners
+    if(length(learners) == tau && is.list(learners[[1]][[1]])) {
+      learners_t <- learners[[t]]
+    }
+
     fit <- run_ensemble(natural$train[i & rt & in_conditioning_set, c("lmtp_id", vars, outcome)],
                         outcome,
-                        learners,
+                        learners_t,
                         outcome_type,
                         "lmtp_id",
                         control$.learners_outcome_folds)
@@ -95,17 +100,25 @@ estimate_tmle <- function(natural, shifted, conditional_prob, trt, outcome, node
 
     wts <- (ratios[, t] * weights / conditional_prob$train[, t + 1])[i & rt & in_conditioning_set]
 
-    fit <- sw(
-      glm(
-        natural$train[i & rt & in_conditioning_set, ][[outcome]] ~ offset(qlogis(m_natural_train[i & rt & in_conditioning_set, t])),
-        weights = wts,
-        family = "binomial"
+    if(all(ratios[i & rt & in_conditioning_set, t] == 0)) {
+      warning(paste0("At time point ", t, " there is a CV fold with all probability ratios equal to zero. Defaulting to no TMLE update for this fold."))
+      natural$train[jt & rt, pseudo] <- m_shifted_train[jt & rt, t]
+      m_natural_valid[jv & rv, t] <- m_natural_valid[jv & rv, t]
+      m_shifted_valid[jv & rv, t] <- m_shifted_valid[jv & rv, t]
+    }
+    else {
+      fit <- sw(
+        glm(
+          natural$train[i & rt & in_conditioning_set, ][[outcome]] ~ offset(qlogis(m_natural_train[i & rt & in_conditioning_set, t])),
+          weights = wts,
+          family = "binomial"
+        )
       )
-    )
 
-    natural$train[jt & rt, pseudo] <- bound(plogis(qlogis(m_shifted_train[jt & rt, t]) + coef(fit)))
-    m_natural_valid[jv & rv, t] <- bound(plogis(qlogis(m_natural_valid[jv & rv, t]) + coef(fit)))
-    m_shifted_valid[jv & rv, t] <- bound(plogis(qlogis(m_shifted_valid[jv & rv, t]) + coef(fit)))
+      natural$train[jt & rt, pseudo] <- bound(plogis(qlogis(m_shifted_train[jt & rt, t]) + coef(fit)))
+      m_natural_valid[jv & rv, t] <- bound(plogis(qlogis(m_natural_valid[jv & rv, t]) + coef(fit)))
+      m_shifted_valid[jv & rv, t] <- bound(plogis(qlogis(m_shifted_valid[jv & rv, t]) + coef(fit)))
+    }
 
     natural$train[!rt, pseudo] <- 0
     m_natural_valid[!rv, t] <- 0
