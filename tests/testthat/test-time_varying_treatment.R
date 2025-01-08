@@ -25,10 +25,12 @@ truth <- 0.305
 
 tmle <- sw(lmtp_tmle(tmp, a, "Y", time_vary = time_varying, shift = d, mtp = T, folds = 1))
 sdr <- sw(lmtp_sdr(tmp, a, "Y", time_vary = time_varying, shift = d, mtp = T, folds = 1))
-curve <- sw(lmtp_curve(tmp, a, "Y", time_vary = time_varying, shift = d, mtp = T, folds = 1, k = 0))
+curve <- sw(lmtp_curve(tmp, a, "Y", time_vary = time_varying, shift = d, mtp = T, folds = 1, k = 0, control = lmtp_control(.isotonic_constraint = FALSE)))
+curve_isotonic <- sw(lmtp_curve(tmp, a, "Y", time_vary = time_varying, shift = d, mtp = T, folds = 1, k = 0))
 
 test_that("time varying treatment fidelity, t = 4", {
   expect_equal(truth, tmle$estimate@x, tolerance = 0.01)
   expect_equal(truth, sdr$estimate@x, tolerance = 0.01)
   expect_equal(truth, curve$estimates[[4]]@x, tolerance = 0.01)
+  expect_equal(truth, curve_isotonic$estimates[[4]]@x, tolerance = 0.01)
 })

@@ -77,10 +77,17 @@ estimate_curve_sdr <- function(task, fold, ratios, learners, control, pb) {
       fits[[t]] <- extract_sl_weights(fit)
     }
 
-    mnt <- update_m(mnt, fit, natural$train, t, task$tau)
-    mst <- update_m(mst, fit, ust, t, task$tau)
-    mnv <- update_m(mnv, fit, natural$valid, t, task$tau)
-    msv <- update_m(msv, fit, usv, t, task$tau)
+    lambda <- function(x) x
+    if(control$.isotonic_constraint == TRUE && task$outcome_type == "binomial") {
+      pred <- predict(fit, natural$train[at_risk & observed & time, vars])
+      out <- natural$train[at_risk & observed & time, "..i..Y_1"]
+      lambda <- isotonic_constraint(pred, out)
+    }
+
+    mnt <- update_m(mnt, fit, natural$train, t, task$tau, lambda)
+    mst <- update_m(mst, fit, ust, t, task$tau, lambda)
+    mnv <- update_m(mnv, fit, natural$valid, t, task$tau, lambda)
+    msv <- update_m(msv, fit, usv, t, task$tau, lambda)
 
     if ((t + 1) <= task$tau) {
       psuedo <- unlist(lapply((t + 1):task$tau, function(x) {
@@ -113,14 +120,14 @@ predict_long <- function(fit, newdata, t, tau) {
   ans[, 1]
 }
 
-update_m <- function(m, fit, newdata, t, tau) {
+update_m <- function(m, fit, newdata, t, tau, lambda) {
   pred <- predict_long(fit, newdata, t, tau)
   time <- as.numeric(newdata$time) >= t
 
   for (l in seq_along(t:tau)) {
     x <- (t:tau)[l]
     j <- as.numeric(newdata$time[time]) == x
-    m[[x]][, x - t + 1] <- pred[j]
+    m[[x]][, x - t + 1] <- lambda(pred[j])
   }
   m
 }
